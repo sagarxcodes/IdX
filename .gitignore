@@ -1,0 +1,70 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+backend/.venv/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+credentials/
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+dist/
+build/
+
+# IDE / OS
+.DS_Store
+.vscode/
+.idea/
+
+# ML model artifacts / checkpoints
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.bin
+
+# Training outputs
+data/training/models/
+data/training/checkpoints/
+
+# Local snapshots / backups
+backend_snapshot_*/
+*.bak
+*.backup
+
+# Logs / runtime data
+*.log
+*.sqlite
+*.sqlite3
+
+# Experimental training data
+data/training/
+
+# Development backups
+backups/
+backend/app/ml_backup_*/
+
+# Timestamped backup / broken files
+*.bak_*
+*.broken_*
+
+# Local trained model artifacts
+backend/data/training/models/
