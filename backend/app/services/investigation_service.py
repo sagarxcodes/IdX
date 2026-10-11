@@ -21,6 +21,19 @@ from app.intelligence.signals.case_signal_analyzer import case_signal_analyzer
 from app.intelligence.decision_analyzer import decision_analyzer
 from app.models.investigation import Investigation
 
+from app.intelligence.investigation.action_ranker import (
+    ActionRanker,
+)
+from app.intelligence.investigation.case_adapter import (
+    to_investigation_case,
+)
+from app.intelligence.investigation.generic_candidate_generator import (
+    GenericCandidateActionGenerator,
+)
+from app.intelligence.investigation.next_best_action import (
+    NextBestActionEngine,
+)
+
 
 class InvestigationService:
 
@@ -29,6 +42,11 @@ class InvestigationService:
         self._states: Dict[str, CaseState] = {}
 
         self.question_engine = AdaptiveQuestionEngine()
+
+        self.action_engine = NextBestActionEngine(
+            generator=GenericCandidateActionGenerator(),
+            ranker=ActionRanker(),
+        )
 
     def create(self, idea: str) -> Investigation:
         domain_result = detect_domain(idea)
@@ -176,6 +194,23 @@ class InvestigationService:
             answer,
         )
 
+    def _select_next_action(
+        self,
+        investigation_id: str,
+    ):
+        state = self._states[
+            investigation_id
+        ]
+
+        intelligence_case = to_investigation_case(
+            state,
+            investigation_id,
+        )
+
+        return self.action_engine.decide(
+            intelligence_case
+        )
+
     def _sync_investigation(
         self,
         investigation_id: str,
@@ -236,9 +271,46 @@ class InvestigationService:
 
         state.facts["_decision_analysis"] = decision_analyzer.analyze(state)
 
-        question = self.question_engine.next_question(
-            state
+        action_result = self._select_next_action(
+            investigation_id
         )
+
+        selected_action = action_result.selected
+
+        investigation.candidate_actions = [
+            {
+                "id": ranked.action.action_id,
+                "action_type": ranked.action.action_type.value,
+                "description": ranked.action.description,
+                "target": ranked.action.target,
+                "score": ranked.score,
+                "reasons": ranked.reasons,
+            }
+            for ranked in action_result.candidates
+        ]
+
+        investigation.current_action = None
+
+        question = None
+
+        if selected_action is not None:
+
+            investigation.current_action = {
+                "id": selected_action.action.action_id,
+                "action_type": selected_action.action.action_type.value,
+                "description": selected_action.action.description,
+                "target": selected_action.action.target,
+                "score": selected_action.score,
+                "reasons": selected_action.reasons,
+            }
+
+            if (
+                selected_action.action.action_type.value
+                == "question"
+            ):
+                question = self.question_engine.next_question(
+                    state
+                )
 
         investigation.archetype = state.archetype
         investigation.objective = state.objective
@@ -336,6 +408,8 @@ class InvestigationService:
             "questions_asked": investigation.questions_asked,
             "current_question": investigation.current_question,
             "question_count": investigation.question_count,
+            "current_action": investigation.current_action,
+            "candidate_actions": investigation.candidate_actions,
         }
 
 

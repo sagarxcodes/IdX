@@ -14,14 +14,10 @@ class GenericCandidateActionGenerator(
     CandidateActionGenerator
 ):
     """
-    Temporary candidate generator.
+    Domain-agnostic action proposal layer.
 
-    It does NOT decide the best action.
-    It only proposes broadly applicable actions
-    based on the current case state.
-
-    The production version will use learned factor/action
-    discovery and retrieval rather than fixed heuristics.
+    This component proposes possibilities.
+    It does NOT decide which one is best.
     """
 
     def generate(
@@ -35,63 +31,104 @@ class GenericCandidateActionGenerator(
         factors = list(case.factors)
 
         # ---------------------------------------------------------
-        # User information
+        # Bootstrap
         # ---------------------------------------------------------
 
-        if unknowns:
-            target = unknowns[0]
-
+        if not case.objective:
             actions.append(
                 CandidateAction(
-                    action_id=f"question_{target}",
+                    action_id="question_objective",
                     action_type=ActionType.QUESTION,
                     description=(
-                        f"Ask the user for the missing information "
-                        f"needed to understand {target}."
+                        "Ask the user what decision, outcome, "
+                        "or objective this investigation should support."
                     ),
-                    target=target,
-                    target_unknowns=[target],
+                    target="objective",
+                    expected_information_gain=0.90,
+                    expected_decision_impact=0.95,
+                    expected_evidence_value=0.10,
+                    expected_uncertainty_reduction=0.90,
+                    estimated_user_effort=0.15,
+                )
+            )
+
+        if not case.facts:
+            actions.append(
+                CandidateAction(
+                    action_id="question_current_state",
+                    action_type=ActionType.QUESTION,
+                    description=(
+                        "Ask the user for the most important "
+                        "known facts or current situation."
+                    ),
+                    target="current_state",
+                    expected_information_gain=0.80,
+                    expected_decision_impact=0.75,
+                    expected_evidence_value=0.10,
+                    expected_uncertainty_reduction=0.75,
                     estimated_user_effort=0.20,
                 )
             )
 
         # ---------------------------------------------------------
-        # Evidence acquisition
+        # Unknowns
         # ---------------------------------------------------------
 
-        if unknowns:
-            target = unknowns[0]
+        for unknown in unknowns[:3]:
 
             actions.append(
                 CandidateAction(
-                    action_id=f"research_{target}",
+                    action_id=f"question_{unknown}",
+                    action_type=ActionType.QUESTION,
+                    description=(
+                        f"Ask the user for information about {unknown}."
+                    ),
+                    target=unknown,
+                    target_unknowns=[unknown],
+                    expected_information_gain=0.70,
+                    expected_decision_impact=0.60,
+                    expected_evidence_value=0.10,
+                    expected_uncertainty_reduction=0.65,
+                    estimated_user_effort=0.20,
+                )
+            )
+
+            actions.append(
+                CandidateAction(
+                    action_id=f"research_{unknown}",
                     action_type=ActionType.RESEARCH,
                     description=(
-                        f"Research reliable external evidence "
-                        f"about {target}."
+                        f"Research external evidence relevant to {unknown}."
                     ),
-                    target=target,
-                    target_unknowns=[target],
+                    target=unknown,
+                    target_unknowns=[unknown],
+                    expected_information_gain=0.75,
+                    expected_decision_impact=0.65,
+                    expected_evidence_value=0.85,
+                    expected_uncertainty_reduction=0.70,
                     estimated_user_effort=0.0,
                 )
             )
 
             actions.append(
                 CandidateAction(
-                    action_id=f"verify_{target}",
+                    action_id=f"verify_{unknown}",
                     action_type=ActionType.VERIFY,
                     description=(
-                        f"Verify the most decision-relevant claims "
-                        f"related to {target}."
+                        f"Verify important claims associated with {unknown}."
                     ),
-                    target=target,
-                    target_unknowns=[target],
+                    target=unknown,
+                    target_unknowns=[unknown],
+                    expected_information_gain=0.65,
+                    expected_decision_impact=0.75,
+                    expected_evidence_value=0.90,
+                    expected_uncertainty_reduction=0.70,
                     estimated_user_effort=0.0,
                 )
             )
 
         # ---------------------------------------------------------
-        # Factor analysis
+        # Factors
         # ---------------------------------------------------------
 
         if factors:
@@ -100,29 +137,37 @@ class GenericCandidateActionGenerator(
                     action_id="analyze_factors",
                     action_type=ActionType.ANALYZE,
                     description=(
-                        "Analyze relationships among the currently "
-                        "known decision factors."
+                        "Analyze relationships among known decision factors."
                     ),
                     target_factors=factors,
+                    expected_information_gain=0.40,
+                    expected_decision_impact=0.60,
+                    expected_evidence_value=0.20,
+                    expected_uncertainty_reduction=0.35,
                     estimated_user_effort=0.0,
                 )
             )
 
-            actions.append(
-                CandidateAction(
-                    action_id="compare_factors",
-                    action_type=ActionType.COMPARE,
-                    description=(
-                        "Compare the most important available "
-                        "alternatives or factor values."
-                    ),
-                    target_factors=factors,
-                    estimated_user_effort=0.0,
+            if len(factors) >= 2:
+                actions.append(
+                    CandidateAction(
+                        action_id="compare_factors",
+                        action_type=ActionType.COMPARE,
+                        description=(
+                            "Compare the most decision-relevant "
+                            "alternatives or factors."
+                        ),
+                        target_factors=factors,
+                        expected_information_gain=0.50,
+                        expected_decision_impact=0.65,
+                        expected_evidence_value=0.20,
+                        expected_uncertainty_reduction=0.40,
+                        estimated_user_effort=0.0,
+                    )
                 )
-            )
 
         # ---------------------------------------------------------
-        # Constraint analysis
+        # Constraints
         # ---------------------------------------------------------
 
         if case.constraints:
@@ -132,14 +177,18 @@ class GenericCandidateActionGenerator(
                     action_type=ActionType.CHECK_CONSTRAINT,
                     description=(
                         "Check whether the current proposal satisfies "
-                        "its important constraints."
+                        "important constraints."
                     ),
+                    expected_information_gain=0.50,
+                    expected_decision_impact=0.70,
+                    expected_evidence_value=0.30,
+                    expected_uncertainty_reduction=0.50,
                     estimated_user_effort=0.0,
                 )
             )
 
         # ---------------------------------------------------------
-        # Similar historical cases
+        # Similar cases
         # ---------------------------------------------------------
 
         actions.append(
@@ -150,12 +199,16 @@ class GenericCandidateActionGenerator(
                     "Find historically similar cases and examine "
                     "their decisions and outcomes."
                 ),
+                expected_information_gain=0.45,
+                expected_decision_impact=0.45,
+                expected_evidence_value=0.65,
+                expected_uncertainty_reduction=0.40,
                 estimated_user_effort=0.0,
             )
         )
 
         # ---------------------------------------------------------
-        # Investigation stopping decision
+        # Stop
         # ---------------------------------------------------------
 
         actions.append(
@@ -166,6 +219,10 @@ class GenericCandidateActionGenerator(
                     "Evaluate whether additional investigation "
                     "is unlikely to materially change the decision."
                 ),
+                expected_information_gain=0.05,
+                expected_decision_impact=0.50,
+                expected_evidence_value=0.0,
+                expected_uncertainty_reduction=0.05,
                 estimated_user_effort=0.0,
             )
         )

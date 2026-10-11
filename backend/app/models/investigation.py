@@ -23,6 +23,13 @@ class Investigation:
     questions_asked: List[str] = field(default_factory=list)
 
     current_question: Optional[Dict[str, str]] = None
+
+    current_action: Optional[Dict[str, Any]] = None
+
+    candidate_actions: List[Dict[str, Any]] = field(
+        default_factory=list
+    )
+
     question_count: int = 0
 
     created_at: datetime = field(default_factory=datetime.utcnow)
